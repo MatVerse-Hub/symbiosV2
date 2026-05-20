@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matverse.local/schemas/immune_decision.schema.json",
+  "title": "ImmuneDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "reason", "omega_score", "receipt_hash"],
+  "properties": {
+    "decision": {"enum": ["PASS", "HOLD", "BLOCK", "ESCALATE", "BLOCK_SECURITY"]},
+    "reason": {"type": "string"},
+    "omega_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "receipt_hash": {"type": "string", "pattern": "^sha256:[a-fA-F0-9]{64}$"},
+    "mnb_hash": {"type": "string", "pattern": "^sha256:[a-fA-F0-9]{64}$"},
+    "replay_required": {"type": "boolean"},
+    "replay_valid": {"type": "boolean"}
+  }
+}
