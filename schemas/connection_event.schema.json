@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matverse.local/schemas/connection_event.schema.json",
+  "title": "ConnectionEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "source_node", "target_node", "action", "timestamp", "payload_hash"],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "source_node": {"type": "string", "minLength": 1},
+    "target_node": {"type": "string", "minLength": 1},
+    "action": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "minLength": 1},
+    "payload_hash": {"type": "string", "pattern": "^(sha256:)?[a-fA-F0-9]{64}$"},
+    "identity": {"type": "object"},
+    "policy": {"type": "object"},
+    "evidence": {"type": "object"},
+    "risk": {"type": "number", "minimum": 0, "maximum": 1},
+    "metadata": {"type": "object"}
+  }
+}
