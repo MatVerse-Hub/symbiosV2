@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .config import DEFAULT_CONFIG, NativeLayerConfig
 from .mnb_envelope import MNBEnvelope
 
 
@@ -14,27 +15,36 @@ class OmegaDecision:
     replay_valid: bool = False
 
 
-def decide(envelope: MNBEnvelope) -> OmegaDecision:
-    """Fail-closed admissibility decision for P0 connection events."""
+def _valid_payload_hash(payload_hash: str, config: NativeLayerConfig) -> bool:
+    if not payload_hash.startswith(config.payload_hash_prefix):
+        return False
+    if len(payload_hash) != config.payload_hash_length:
+        return False
+    digest = payload_hash.removeprefix(config.payload_hash_prefix)
+    return all(char in "0123456789abcdefABCDEF" for char in digest)
+
+
+def decide(envelope: MNBEnvelope, config: NativeLayerConfig = DEFAULT_CONFIG) -> OmegaDecision:
+    """Fail-closed admissibility decision for connection events."""
     if not envelope.event_id or not envelope.source_node or not envelope.target_node:
-        return OmegaDecision("BLOCK", "missing identity-bearing event fields", 0.0)
+        return OmegaDecision("BLOCK", "missing identity-bearing event fields", config.score_block)
 
     if not envelope.identity_present:
-        return OmegaDecision("BLOCK", "missing identity", 0.0)
+        return OmegaDecision("BLOCK", "missing identity", config.score_block)
 
     if not envelope.policy_present:
-        return OmegaDecision("BLOCK", "missing policy", 0.0)
+        return OmegaDecision("BLOCK", "missing policy", config.score_block)
 
-    if not envelope.payload_hash.startswith("sha256:") or len(envelope.payload_hash) != 71:
-        return OmegaDecision("BLOCK", "missing or invalid payload hash", 0.0)
+    if not _valid_payload_hash(envelope.payload_hash, config):
+        return OmegaDecision("BLOCK", "missing or invalid payload hash", config.score_block)
 
-    if envelope.risk >= 0.85:
-        return OmegaDecision("BLOCK", "risk above block threshold", 0.1)
+    if envelope.risk >= config.risk_block_threshold:
+        return OmegaDecision("BLOCK", "risk above block threshold", config.score_high_risk_block)
 
     if not envelope.evidence_present:
-        return OmegaDecision("HOLD", "missing evidence", 0.5)
+        return OmegaDecision("HOLD", "missing evidence", config.score_hold)
 
-    if envelope.risk >= 0.65:
-        return OmegaDecision("ESCALATE", "risk requires human or external review", 0.7)
+    if envelope.risk >= config.risk_escalate_threshold:
+        return OmegaDecision("ESCALATE", "risk requires human or external review", config.score_escalate)
 
-    return OmegaDecision("PASS", "identity, policy, evidence and risk are admissible", 0.95)
+    return OmegaDecision("PASS", "identity, policy, evidence and risk are admissible", config.score_pass)
