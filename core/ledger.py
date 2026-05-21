@@ -16,6 +16,12 @@ def append_jsonl(path: str | Path, record: dict[str, Any]) -> None:
         handle.write(canonical_json(record) + "\n")
 
 
+def compute_record_hash(record: dict[str, Any]) -> str:
+    """Recompute the canonical record hash excluding the stored hash field."""
+    unsigned = {key: value for key, value in record.items() if key != "record_hash"}
+    return sha256_text(canonical_json(unsigned))
+
+
 def process_connection_event(event: dict[str, Any], ledger_path: str | Path) -> dict[str, Any]:
     envelope = MNBEnvelope.from_connection_event(event)
     decision = decide(envelope)
@@ -32,7 +38,7 @@ def process_connection_event(event: dict[str, Any], ledger_path: str | Path) -> 
         },
         "receipt": receipt.to_dict(),
     }
-    record["record_hash"] = sha256_text(canonical_json(record))
+    record["record_hash"] = compute_record_hash(record)
     append_jsonl(ledger_path, record)
     return record
 
@@ -51,15 +57,23 @@ def replay_records(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         envelope = MNBEnvelope.from_connection_event(event)
         decision = decide(envelope)
         receipt = create_receipt(envelope, decision)
+        stored_record_hash = record.get("record_hash")
+        recomputed_record_hash = compute_record_hash(record)
+        record_hash_valid = stored_record_hash == recomputed_record_hash
+        trace_matches = (
+            envelope.hash() == record.get("mnb_hash")
+            and decision.decision == record.get("decision", {}).get("decision")
+            and receipt.receipt_hash == record.get("receipt", {}).get("receipt_hash")
+        )
         replayed.append({
             "event_id": envelope.event_id,
             "mnb_hash": envelope.hash(),
             "decision": decision.decision,
             "receipt_hash": receipt.receipt_hash,
-            "matches": (
-                envelope.hash() == record.get("mnb_hash")
-                and decision.decision == record.get("decision", {}).get("decision")
-                and receipt.receipt_hash == record.get("receipt", {}).get("receipt_hash")
-            ),
+            "stored_record_hash": stored_record_hash,
+            "recomputed_record_hash": recomputed_record_hash,
+            "record_hash_valid": record_hash_valid,
+            "trace_matches": trace_matches,
+            "matches": record_hash_valid and trace_matches,
         })
     return replayed
