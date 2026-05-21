@@ -6,11 +6,35 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
+
+COMMAND_TIMEOUT_SECONDS: Final[int] = 120
+COMMANDS: Final[dict[str, list[str]]] = {
+    "pytest": ["python", "-m", "pytest"],
+    "py_compile": ["python", "-m", "compileall", "-q", "core"],
+}
 
 
-def run_command(command: list[str]) -> tuple[str, str]:
-    completed = subprocess.run(command, check=False, text=True, capture_output=True)
+def run_command(command_name: str, timeout_seconds: int = COMMAND_TIMEOUT_SECONDS) -> tuple[str, str]:
+    """Run an internal allowlisted command with timeout and no shell."""
+    command = COMMANDS.get(command_name)
+    if command is None:
+        return "FAIL", f"command not allowlisted: {command_name}"
+
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            shell=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = "".join(part for part in (exc.stdout, exc.stderr) if isinstance(part, str))
+        message = f"command timed out after {timeout_seconds}s: {command_name}"
+        return "FAIL", (message + "\n" + output).strip()
+
     status = "PASS" if completed.returncode == 0 else "FAIL"
     return status, (completed.stdout + completed.stderr).strip()
 
@@ -25,14 +49,8 @@ def main() -> int:
     parser.add_argument("--output", default="reports/native_layer_ci_report.json")
     args = parser.parse_args()
 
-    pytest_status, pytest_output = run_command(["python", "-m", "pytest"])
-    py_compile_status, py_compile_output = run_command([
-        "python",
-        "-m",
-        "compileall",
-        "-q",
-        "core",
-    ])
+    pytest_status, pytest_output = run_command("pytest")
+    py_compile_status, py_compile_output = run_command("py_compile")
 
     overall = "PASS" if pytest_status == "PASS" and py_compile_status == "PASS" else "BLOCK"
     commit_sha = os.environ.get("GITHUB_SHA") or os.environ.get("COMMIT_SHA") or "unknown"
@@ -44,6 +62,11 @@ def main() -> int:
         "tests": pytest_status,
         "py_compile": py_compile_status,
         "status": overall,
+        "command_policy": {
+            "allowlisted_commands": sorted(COMMANDS),
+            "shell": False,
+            "timeout_seconds": COMMAND_TIMEOUT_SECONDS,
+        },
         "outputs": {
             "pytest": pytest_output[-4000:],
             "py_compile": py_compile_output[-4000:],
