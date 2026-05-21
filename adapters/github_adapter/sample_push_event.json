@@ -1,0 +1,27 @@
+{
+  "ref": "refs/heads/main",
+  "before": "0000000000000000000000000000000000000000",
+  "after": "5743936fc2d70f521271223c206098eeeb50ab70",
+  "timestamp": "2026-05-21T00:25:00Z",
+  "repository": {
+    "id": 123456789,
+    "name": "symbiosV2",
+    "full_name": "MatVerse-Hub/symbiosV2",
+    "private": false
+  },
+  "sender": {
+    "login": "MatVerse-py",
+    "id": 231977376
+  },
+  "head_commit": {
+    "id": "5743936fc2d70f521271223c206098eeeb50ab70",
+    "message": "Merge PR #10: Harden CI evidence command execution",
+    "timestamp": "2026-05-21T00:22:33Z"
+  },
+  "commits": [
+    {
+      "id": "5743936fc2d70f521271223c206098eeeb50ab70",
+      "message": "Merge PR #10: Harden CI evidence command execution"
+    }
+  ]
+}
