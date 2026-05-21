@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from core.config import DEFAULT_CONFIG
 from core.ledger import process_connection_event, read_jsonl, replay_records
 from core.mnb_envelope import MNBEnvelope
 from core.omega_gate import decide
@@ -29,14 +30,14 @@ def test_mnb_hash_is_deterministic():
     first = MNBEnvelope.from_connection_event(valid_event()).hash()
     second = MNBEnvelope.from_connection_event(valid_event()).hash()
     assert first == second
-    assert first.startswith("sha256:")
+    assert first.startswith(DEFAULT_CONFIG.payload_hash_prefix)
 
 
 def test_omega_passes_valid_event():
     envelope = MNBEnvelope.from_connection_event(valid_event())
     decision = decide(envelope)
     assert decision.decision == "PASS"
-    assert decision.omega_score == 0.95
+    assert decision.omega_score == DEFAULT_CONFIG.score_pass
 
 
 def test_omega_blocks_missing_identity():
@@ -61,4 +62,27 @@ def test_ledger_append_and_replay(tmp_path: Path):
     replayed = replay_records(records)
     assert len(replayed) == 1
     assert replayed[0]["matches"] is True
+    assert replayed[0]["record_hash_valid"] is True
+    assert replayed[0]["trace_matches"] is True
     assert replayed[0]["decision"] == "PASS"
+
+
+def test_replay_detects_modified_record_hash(tmp_path: Path):
+    ledger_path = tmp_path / "ledger.jsonl"
+    process_connection_event(valid_event(), ledger_path)
+    records = read_jsonl(ledger_path)
+    records[0]["record_hash"] = "sha256:" + "0" * 64
+    replayed = replay_records(records)
+    assert replayed[0]["record_hash_valid"] is False
+    assert replayed[0]["matches"] is False
+
+
+def test_replay_detects_modified_decision_payload(tmp_path: Path):
+    ledger_path = tmp_path / "ledger.jsonl"
+    process_connection_event(valid_event(), ledger_path)
+    records = read_jsonl(ledger_path)
+    records[0]["decision"]["decision"] = "BLOCK"
+    replayed = replay_records(records)
+    assert replayed[0]["record_hash_valid"] is False
+    assert replayed[0]["trace_matches"] is False
+    assert replayed[0]["matches"] is False
