@@ -1,42 +1,55 @@
 from __future__ import annotations
 
 import argparse
+import compileall
+import contextlib
+import io
 import json
 import os
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Mapping
 
-COMMAND_TIMEOUT_SECONDS: Final[int] = 120
-COMMANDS: Final[dict[str, list[str]]] = {
-    "pytest": ["python", "-m", "pytest"],
-    "py_compile": ["python", "-m", "compileall", "-q", "core"],
+COMMANDS: Final[Mapping[str, tuple[str, ...]]] = {
+    "pytest": ("pytest",),
+    "py_compile": ("compileall", "core"),
 }
 
 
-def run_command(command_name: str, timeout_seconds: int = COMMAND_TIMEOUT_SECONDS) -> tuple[str, str]:
-    """Run an internal allowlisted command with timeout and no shell."""
-    command = COMMANDS.get(command_name)
-    if command is None:
-        return "FAIL", f"command not allowlisted: {command_name}"
-
+def run_pytest() -> tuple[str, str]:
+    """Run pytest in-process to avoid shell or subprocess execution."""
     try:
-        completed = subprocess.run(
-            command,
-            check=False,
-            text=True,
-            capture_output=True,
-            timeout=timeout_seconds,
-            shell=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        output = "".join(part for part in (exc.stdout, exc.stderr) if isinstance(part, str))
-        message = f"command timed out after {timeout_seconds}s: {command_name}"
-        return "FAIL", (message + "\n" + output).strip()
+        import pytest
+    except ImportError as exc:
+        return "FAIL", f"pytest import failed: {exc}"
 
-    status = "PASS" if completed.returncode == 0 else "FAIL"
-    return status, (completed.stdout + completed.stderr).strip()
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        exit_code = pytest.main([])
+    output = (stdout.getvalue() + stderr.getvalue()).strip()
+    return ("PASS" if exit_code == 0 else "FAIL"), output
+
+
+def run_py_compile() -> tuple[str, str]:
+    """Compile core Python files in-process using compileall."""
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        ok = compileall.compile_dir("core", quiet=1)
+    output = (stdout.getvalue() + stderr.getvalue()).strip()
+    return ("PASS" if ok else "FAIL"), output
+
+
+def run_command(command_name: str) -> tuple[str, str]:
+    """Run an internal allowlisted in-process command."""
+    if command_name not in COMMANDS:
+        return "FAIL", f"command not allowlisted: {command_name}"
+    if command_name == "pytest":
+        return run_pytest()
+    if command_name == "py_compile":
+        return run_py_compile()
+    return "FAIL", f"command has no handler: {command_name}"
 
 
 def write_report(path: Path, report: dict[str, Any]) -> None:
@@ -64,8 +77,9 @@ def main() -> int:
         "status": overall,
         "command_policy": {
             "allowlisted_commands": sorted(COMMANDS),
+            "execution_mode": "in_process",
             "shell": False,
-            "timeout_seconds": COMMAND_TIMEOUT_SECONDS,
+            "subprocess": False,
         },
         "outputs": {
             "pytest": pytest_output[-4000:],
