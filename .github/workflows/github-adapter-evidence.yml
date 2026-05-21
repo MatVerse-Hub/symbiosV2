@@ -25,6 +25,9 @@ jobs:
       - name: Install dev requirements
         run: python -m pip install -r requirements-dev.txt
 
+      - name: Generate native CI evidence
+        run: python scripts/generate_ci_evidence.py --output reports/native_layer_ci_report.json
+
       - name: Generate GitHub adapter evidence
         run: python scripts/github_adapter_sample_evidence.py
 
