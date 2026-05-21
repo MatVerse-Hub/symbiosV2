@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from adapters.github_adapter.runner import process_github_event_file
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 EVENT_PATH = REPO_ROOT / "adapters" / "github_adapter" / "sample_push_event.json"
 LEDGER_PATH = REPO_ROOT / "reports" / "github_ledger.jsonl"
 RESULT_PATH = REPO_ROOT / "reports" / "github_adapter_result.json"
