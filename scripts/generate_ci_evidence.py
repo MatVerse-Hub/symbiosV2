@@ -6,18 +6,28 @@ import contextlib
 import io
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final, Mapping
 
+REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 COMMANDS: Final[Mapping[str, tuple[str, ...]]] = {
     "pytest": ("pytest",),
     "py_compile": ("compileall", "core"),
 }
 
 
+def ensure_repo_root_on_path() -> None:
+    """Ensure in-process checks can import repository packages from CI."""
+    repo_root = str(REPO_ROOT)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+
 def run_pytest() -> tuple[str, str]:
     """Run pytest in-process to avoid shell or subprocess execution."""
+    ensure_repo_root_on_path()
     try:
         import pytest
     except ImportError as exc:
@@ -26,7 +36,7 @@ def run_pytest() -> tuple[str, str]:
     stdout = io.StringIO()
     stderr = io.StringIO()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        exit_code = pytest.main([])
+        exit_code = pytest.main([str(REPO_ROOT / "tests")])
     output = (stdout.getvalue() + stderr.getvalue()).strip()
     return ("PASS" if exit_code == 0 else "FAIL"), output
 
@@ -36,7 +46,7 @@ def run_py_compile() -> tuple[str, str]:
     stdout = io.StringIO()
     stderr = io.StringIO()
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        ok = compileall.compile_dir("core", quiet=1)
+        ok = compileall.compile_dir(str(REPO_ROOT / "core"), quiet=1)
     output = (stdout.getvalue() + stderr.getvalue()).strip()
     return ("PASS" if ok else "FAIL"), output
 
@@ -78,6 +88,7 @@ def main() -> int:
         "command_policy": {
             "allowlisted_commands": sorted(COMMANDS),
             "execution_mode": "in_process",
+            "repo_root": str(REPO_ROOT),
             "shell": False,
             "subprocess": False,
         },
