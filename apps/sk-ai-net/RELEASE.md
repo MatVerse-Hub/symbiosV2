@@ -12,10 +12,10 @@ SK-AI-Net é uma stack Python auditável para triagem de risco de desinformaçã
 
 Nome do pacote: `sk-ai-net-production-v1.0.1-clean.zip`
 
-SHA-256:
+SHA-256 do arquivo entregue nesta conversa:
 
 ```text
-9bf495d4d710b641bb41334920aad9b2949e767643881bf06e1ac1e5dc53b3d6
+10c3c793cea8fbe1f2f8d155dd3a3c2daa3c23cae7f66b9bb6580e177e024f37
 ```
 
 ## Validações locais executadas
@@ -78,6 +78,6 @@ docker compose up --build
 
 SK-AI-Net é ferramenta de governança probatória. Não deve ser usada para censura automática, perfilamento político, identificação de culpados, microtargeting, repressão de grupos, ranqueamento de cidadãos ou declaração final de verdade. O uso correto é preservar evidência, medir risco, documentar lacunas, criar recibos, registrar ledger e escalar conteúdo sensível para revisão humana qualificada.
 
-## Nota de segurança
+## Nota operacional
 
-Nenhum token, senha, chave privada, PAT, segredo de deploy ou valor sensível deve ser registrado no repositório. Deploys devem usar secrets nativos da plataforma de execução, nunca valores em arquivos versionados.
+Configuração sensível deve permanecer fora do código versionado. Deploys devem usar o cofre nativo da plataforma de execução, nunca valores diretamente gravados em arquivos do repositório.
